@@ -1,9 +1,7 @@
 # CUPredictor - Know the size of the BRA
 <div align="center">
- <img src="static/imgs/UI.jpg" width="50%" height="50%">
+ <img src="static/imgs/UI.jpg" width="35%" height="35%">
 </div>
-
-A tool to predict a BRA SIZE of a picture
 
 ## Usage
 Clone this repo. 
