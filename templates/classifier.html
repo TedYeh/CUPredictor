@@ -1,0 +1,49 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>CUPredictor - Know the size of the CUP</title>
+        <meta name="description" content="Flat UI Kit Free is a Twitter Bootstrap Framework design and Theme, this responsive framework includes a PSD and HTML version."/>
+
+        <meta name="viewport" content="width=1000, initial-scale=1.0, maximum-scale=1.0">
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+        <!-- Loading Bootstrap -->
+        <link href="{{ url_for('static',filename='flat/dist/css/vendor/bootstrap.min.css') }}" rel="stylesheet">
+
+        <!-- Loading Flat UI -->
+        <link href="{{ url_for('static',filename='flat/dist/css/flat-ui.css') }}" rel="stylesheet">
+        <link href="{{ url_for('static',filename='flat/docs/assets/css/demo.css') }}" rel="stylesheet">
+
+        <link rel="shortcut icon" href="{{ url_for('static',filename='flat/dist/favicon.ico') }}">
+
+        <!-- HTML5 shim, for IE6-8 support of HTML5 elements. All other JS at the end of file. -->
+        <!--[if lt IE 9]>
+        <script src="dist/js/vendor/html5shiv.js"></script>
+        <script src="dist/js/vendor/respond.min.js"></script>
+        <![endif]-->
+    </head>
+    <body>
+        <div class="container">
+            <div class="demo-headline">
+                <img src="static/imgs/bra.png" alt="image" class="img-rounded img-responsive" width="10%" height="10%">
+                <h1 class="demo-logo">
+                    CUPredictor
+                    <small>Know the size of the CUP</small>
+                </h1>
+            </div>            
+            <div align="center">                  
+                <div class="card" style="width: 18rem;">
+                    <img src="{{ user_image }}" class="card-img-top" alt="input image">
+                    <div class="card-body">
+                      <h5 class="card-title">The Bra</h5>
+                      <p class="card-text">{{result}}</p>
+                      <form method=post enctype=multipart/form-data>
+                        <input type="file" name="file" placeholder="select your file" class="form-control flat" />
+                        <input type="submit" value="Upload" class="btn btn-block btn-lg btn-primary" />
+                      </form>
+                    </div>
+                </div>                
+            </div>            
+        </div>
+    </body>
+</html>
