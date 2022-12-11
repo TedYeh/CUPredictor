@@ -162,7 +162,7 @@ def evaluation(model, epoch, device, dataloaders):
             _, preds = torch.max(outputs, 1)
             print(preds)
 
-def inference(img_path, classes = ['big', 'small'], epoch = 15):
+def inference(img_path, classes = ['big', 'small'], epoch = 25):
     model = model = CUPredictor()
     model.load_state_dict(torch.load(f'models/model_{epoch}.pt'))
     model.eval()
@@ -226,9 +226,9 @@ def get_label(types):
 if __name__ == "__main__":
     
     CLASS = ['big', 'small']
-    #main(25, mode = 'val')
+    main(25, mode = 'val')
     #get_label(['train', 'val'])
-    outputs, preds, heights = inference('images/test/lin.png', CLASS, epoch=15)
+    outputs, preds, heights = inference('images/test/lin.png', CLASS, epoch=25)
     print(outputs, preds, heights)
     #print(CUPredictor())
     #divide_class_dir('./images/train')
