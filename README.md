@@ -1,6 +1,6 @@
 # CUPredictor - Know the size of the BRA
 <div align="center">
- <img src="static/imgs/UI.jpg" width="35%" height="35%">
+ <img src="static/imgs/UI.jpg" width="45%" height="45%">
 </div>
 
 ## Usage
