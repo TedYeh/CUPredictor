@@ -8,8 +8,10 @@ import torch.backends.cudnn as cudnn
 import numpy as np
 import torchvision
 from torchvision import datasets, models, transforms
+from torch.utils.data import TensorDataset, DataLoader
 from PIL import Image
 import matplotlib.pyplot as plt
+from dataloader import imgDataset
 import time
 import os
 import copy
@@ -27,11 +29,12 @@ class CUPredictor(nn.Module):
         self.base.fc = nn.Linear(num_ftrs, num_ftrs//2)         
         self.classifier = nn.Linear(num_ftrs//2, num_class)
         self.height_regressor = nn.Linear(num_ftrs//2, 1)
+        self.relu = nn.ReLU()
 
     def forward(self, input_img):
         output = self.base(input_img)
         predict_cls = self.classifier(output)
-        predict_height = self.height_regressor(output)
+        predict_height = self.relu(self.height_regressor(output))
         return predict_cls, predict_height
 
 
@@ -48,17 +51,11 @@ def imshow(inp, title=None):
     plt.pause(0.001)  # pause a bit so that plots are updated 
     plt.savefig(f'images/preds/prediction.png')   
 
-def divide_class_dir(path):
-    file_list = os.listdir(path)
-    for img_name in file_list:
-        dest_path = os.path.join(path, img_name.split('-')[3])
-        if not os.path.exists(dest_path):
-            os.mkdir(dest_path)  # 建立資料夾
-        os.replace(os.path.join(path, img_name), os.path.join(dest_path, img_name))
-
-def train_model(model, criterion, optimizer, device, dataloaders, dataset_sizes, num_epochs=25):
+def train_model(model, device, dataloaders, dataset_sizes, num_epochs=25):
     since = time.time()
-
+    ce = nn.CrossEntropyLoss()
+    mse = nn.MSELoss()
+    optimizer = optim.AdamW(model.parameters(), lr=0.0001)
     best_model_wts = copy.deepcopy(model.state_dict())
     best_acc = 0.0
 
@@ -73,13 +70,15 @@ def train_model(model, criterion, optimizer, device, dataloaders, dataset_sizes,
             else:
                 model.eval()   # Set model to evaluate mode
 
-            running_loss = 0.0
+            running_ce_loss = 0.0
+            running_rmse_loss = 0.0
             running_corrects = 0
 
             # Iterate over data.
-            for inputs, labels in dataloaders[phase]:
+            for inputs, labels, heights in dataloaders[phase]:
                 inputs = inputs.to(device)
                 labels = labels.to(device)
+                heights = heights.to(device)
 
                 # zero the parameter gradients
                 optimizer.zero_grad()
@@ -87,23 +86,28 @@ def train_model(model, criterion, optimizer, device, dataloaders, dataset_sizes,
                 # forward
                 # track history if only in train
                 with torch.set_grad_enabled(phase == 'train'):
-                    outputs = model(inputs)
-                    _, preds = torch.max(outputs, 1)
-                    loss = criterion(outputs, labels)
+                    outputs_c, outputs_h = model(inputs)
+                    _, preds = torch.max(outputs_c, 1)
+                    ce_loss = ce(outputs_c, labels)
+                    rmse_loss = torch.sqrt(mse(outputs_h, heights.unsqueeze(-1)))
+                    loss = ce_loss + rmse_loss
 
                     # backward + optimize only if in training phase
                     if phase == 'train':
                         loss.backward()
+                        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                         optimizer.step()
 
                 # statistics
-                running_loss += loss.item() * inputs.size(0)
+                running_ce_loss += ce_loss.item() * inputs.size(0)
+                running_rmse_loss += rmse_loss.item() * inputs.size(0)
                 running_corrects += torch.sum(preds == labels.data)            
 
-            epoch_loss = running_loss / dataset_sizes[phase]
+            epoch_ce_loss = running_ce_loss / dataset_sizes[phase]
+            epoch_mse_loss = running_rmse_loss / dataset_sizes[phase]
             epoch_acc = running_corrects.double() / dataset_sizes[phase]
 
-            print(f'{phase} Loss: {epoch_loss:.4f} Acc: {epoch_acc:.4f}')
+            print(f'{phase} CE_Loss: {epoch_ce_loss:.4f} MSE_Loss: {epoch_mse_loss:.4f} Acc: {epoch_acc:.4f}')
 
             # deep copy the model
             if phase == 'val' and epoch_acc > best_acc:
@@ -159,8 +163,7 @@ def evaluation(model, epoch, device, dataloaders):
             print(preds)
 
 def inference(img_path, classes = ['big', 'small'], epoch = 15):
-    model = torchvision.models.resnet50(pretrained=True)
-    model.fc = nn.Linear(model.fc.in_features, 2)
+    model = model = CUPredictor()
     model.load_state_dict(torch.load(f'models/model_{epoch}.pt'))
     model.eval()
 
@@ -177,79 +180,56 @@ def inference(img_path, classes = ['big', 'small'], epoch = 15):
     image_tensor = image_tensor.unsqueeze(0)
     with torch.no_grad():
         inputs = image_tensor.to(device)
-        outputs = model(inputs)
-        _, preds = torch.max(outputs, 1)
+        outputs_c, outputs_h = model(inputs)
+        _, preds = torch.max(outputs_c, 1)
         idx = preds.numpy()[0]
-    return outputs, classes[idx]
+    return outputs_c, classes[idx], f"{outputs_h.numpy()[0][0]:.2f}"
 
-def main(epoch = 15, mode = 'test'):
+def main(epoch = 15, mode = 'val'):
     cudnn.benchmark = True
     plt.ion()   # interactive mode
-
-    # Data augmentation and normalization for training
-    # Just normalization for validation
-    data_transforms = {
-        'train': transforms.Compose([
-            transforms.RandomResizedCrop(224),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ]),
-        'val': transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ]),
+    model = CUPredictor()
+    train_dataset = imgDataset('labels.txt', mode='train')
+    test_dataset = imgDataset('labels.txt', mode='val')
+    dataloaders = {
+                    "train": DataLoader(train_dataset, batch_size=16, shuffle=True),
+                    "val": DataLoader(test_dataset, batch_size=16, shuffle=True)
     }
-    
-    image_datasets = {x: datasets.ImageFolder(os.path.join(PATH, x),
-                                            data_transforms[x])
-                    for x in ['train', 'val']}
-    dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=16,
-                                                shuffle=True, num_workers=4)
-                for x in ['train', 'val']}
-    dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val']}
-    class_names = image_datasets['train'].classes
-    print(class_names)
+    dataset_sizes = {
+        "train": len(train_dataset),
+        "val": len(test_dataset)
+    }
     #device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    device = torch.device("cpu")
-    # Get a batch of training data
-    inputs, classes = next(iter(dataloaders['train']))
+    device = torch.device("cpu")   
+    
+    model_conv = train_model(model, device, dataloaders, dataset_sizes, num_epochs=epoch)
+    torch.save(model_conv.state_dict(), f'models/model_{epoch}.pt')
 
-    # Make a grid from batch
-    out = torchvision.utils.make_grid(inputs)
+def divide_class_dir(path):
+    file_list = os.listdir(path)
+    for img_name in file_list:
+        dest_path = os.path.join(path, img_name.split('-')[3])
+        if not os.path.exists(dest_path):
+            os.mkdir(dest_path)  # 建立資料夾
+        os.replace(os.path.join(path, img_name), os.path.join(dest_path, img_name))
 
-    imshow(out, title=[class_names[x] for x in classes])
-
-    model_conv = torchvision.models.resnet50(pretrained=True)
-    for param in model_conv.parameters():
-        param.requires_grad = False
-
-    # Parameters of newly constructed modules have requires_grad=True by default
-    num_ftrs = model_conv.fc.in_features
-    model_conv.fc = nn.Linear(num_ftrs, len(class_names))
-
-    model_conv = model_conv.to(device)
-
-    criterion = nn.CrossEntropyLoss()
-
-    # Observe that only parameters of final layer are being optimized as
-    # opposed to before.
-    optimizer_conv = optim.AdamW(model_conv.fc.parameters(), lr=0.001)
-
-    if mode == 'test':
-        evaluation(model_conv, epoch, device, dataloaders, class_names)
-        visualize_model(model_conv, device, dataloaders, class_names)
-    else:
-        model_conv = train_model(model_conv, criterion, optimizer_conv, device, dataloaders, dataset_sizes, num_epochs=epoch)
-        torch.save(model_conv.state_dict(), f'models/model_{epoch}.pt')
+def get_label(types):
+    with open('labels.txt', 'w', encoding='utf-8') as f:
+        for f_type in types:
+            for img_type in CLASS:
+                path = os.path.join('images', f_type, img_type)
+                file_list = os.listdir(path)
+                for file_name in file_list:
+                    file_name_list = file_name.split('-')
+                    f.write(" ".join([f_type, file_name, img_type, file_name_list[4].split('_')[0], '\n']))
 
 if __name__ == "__main__":
-    #main(15, mode = 'test')
+    
     CLASS = ['big', 'small']
-    outputs, preds = inference('images/test/lin.png', CLASS, epoch=15)
-    print(outputs, preds)
+    #main(25, mode = 'val')
+    #get_label(['train', 'val'])
+    outputs, preds, heights = inference('images/test/lin.png', CLASS, epoch=15)
+    print(outputs, preds, heights)
     #print(CUPredictor())
     #divide_class_dir('./images/train')
     #divide_class_dir('./images/val')

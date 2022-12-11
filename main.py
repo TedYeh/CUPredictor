@@ -17,6 +17,7 @@ def allowed_file(filename):
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
     preds = ''
+    heights = 0.0
     if request.method == 'POST':
         # check if the post request has the file part
         if 'file' not in request.files:
@@ -31,12 +32,12 @@ def upload_file():
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            outputs, preds = inference(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            outputs, preds, heights = inference(os.path.join(app.config['UPLOAD_FOLDER'], filename))
             print(outputs)
             img = os.path.join(app.config['UPLOAD_FOLDER'], filename)#app.config['UPLOAD_FOLDER']
 
-            return render_template('classifier.html', result = '大' if preds=='big' else '小', user_image = img)
-    return render_template('classifier.html', result = preds, user_image = 'static/imgs/cup.png')
+            return render_template('classifier.html', result = '大' if preds=='big' else '小', height = heights, user_image = img)
+    return render_template('classifier.html', result = preds, height = heights, user_image = 'static/imgs/cup.png')
 
 
 if __name__ == "__main__":
