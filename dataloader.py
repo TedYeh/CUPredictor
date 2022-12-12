@@ -38,7 +38,7 @@ class imgDataset(Dataset):
             for line in f.readlines():
                 file_name_list = line.split(' ')
                 if not self.mode in file_name_list:continue
-                label, h = 0 if file_name_list[2]=="big" else 1, int(file_name_list[3])
+                label, h = 0 if file_name_list[2]=="big" else 1, float(file_name_list[3])
                 data.append([os.path.join('images', file_name_list[0], file_name_list[2], file_name_list[1]), label, h])
         return data
 

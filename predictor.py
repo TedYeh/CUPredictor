@@ -192,16 +192,16 @@ def main(epoch = 15, mode = 'val'):
     train_dataset = imgDataset('labels.txt', mode='train')
     test_dataset = imgDataset('labels.txt', mode='val')
     dataloaders = {
-                    "train": DataLoader(train_dataset, batch_size=16, shuffle=True),
-                    "val": DataLoader(test_dataset, batch_size=16, shuffle=True)
+                    "train": DataLoader(train_dataset, batch_size=32, shuffle=True),
+                    "val": DataLoader(test_dataset, batch_size=32, shuffle=True)
     }
     dataset_sizes = {
         "train": len(train_dataset),
         "val": len(test_dataset)
     }
-    #device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    device = torch.device("cpu")   
-    
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    #device = torch.device("cpu")   
+    model = model.to(device)
     model_conv = train_model(model, device, dataloaders, dataset_sizes, num_epochs=epoch)
     torch.save(model_conv.state_dict(), f'models/model_{epoch}.pt')
 
@@ -226,9 +226,11 @@ def get_label(types):
 if __name__ == "__main__":
     
     CLASS = ['big', 'small']
-    main(25, mode = 'val')
-    #get_label(['train', 'val'])
-    outputs, preds, heights = inference('images/test/lin.png', CLASS, epoch=25)
+    mode = 'train'
+    get_label(['train', 'val'])
+    main(35, mode = mode)
+    
+    outputs, preds, heights = inference('images/test/lin.png', CLASS, epoch=35)
     print(outputs, preds, heights)
     #print(CUPredictor())
     #divide_class_dir('./images/train')
