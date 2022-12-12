@@ -26,21 +26,13 @@ class CUPredictor(nn.Module):
             param.requires_grad = False
 
         num_ftrs = self.base.fc.in_features
-        self.base.fc = nn.Linear(num_ftrs, num_ftrs//2)    
-        self.hidden = nn.Sequential(
-          nn.Linear(num_ftrs//2, num_ftrs//4),
-          nn.Dropout(p=0.5),
-          nn.ReLU(),
-          nn.Linear(num_ftrs//4, num_ftrs//6),
-          nn.Dropout(p=0.5)
-        )     
-        self.classifier = nn.Linear(num_ftrs//6, num_class)
-        self.height_regressor = nn.Linear(num_ftrs//6, 1)
+        self.base.fc = nn.Linear(num_ftrs, num_ftrs//2) 
+        self.classifier = nn.Linear(num_ftrs//2, num_class)
+        self.height_regressor = nn.Linear(num_ftrs//2, 1)
         self.relu = nn.ReLU()
 
     def forward(self, input_img):
         output = self.base(input_img)
-        output = self.hidden(output)
         predict_cls = self.classifier(output)
         predict_height = self.relu(self.height_regressor(output))
         return predict_cls, predict_height
@@ -236,9 +228,9 @@ if __name__ == "__main__":
     CLASS = ['big', 'small']
     mode = 'train'
     get_label(['train', 'val'])
-    main(35, mode = mode)
+    main(25, mode = mode)
     
-    outputs, preds, heights = inference('images/test/lin.png', CLASS, epoch=35)
+    outputs, preds, heights = inference('images/test/lin.png', CLASS, epoch=25)
     print(outputs, preds, heights)
     #print(CUPredictor())
     #divide_class_dir('./images/train')
