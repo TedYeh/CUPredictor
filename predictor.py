@@ -32,7 +32,7 @@ class CUPredictor(nn.Module):
         self.relu = nn.ReLU()
 
     def forward(self, input_img):
-        output = self.base(input_img)
+        output = self.base(input_img)    
         predict_cls = self.classifier(output)
         predict_height = self.relu(self.height_regressor(output))
         return predict_cls, predict_height
@@ -55,7 +55,7 @@ def train_model(model, device, dataloaders, dataset_sizes, num_epochs=25):
     since = time.time()
     ce = nn.CrossEntropyLoss()
     mse = nn.MSELoss()
-    optimizer = optim.AdamW(model.parameters(), lr=0.0005)
+    optimizer = optim.AdamW(model.parameters(), lr=0.0008)
     best_model_wts = copy.deepcopy(model.state_dict())
     best_acc = 0.0
 
@@ -113,7 +113,7 @@ def train_model(model, device, dataloaders, dataset_sizes, num_epochs=25):
             if phase == 'val' and epoch_acc > best_acc:
                 best_acc = epoch_acc
                 best_model_wts = copy.deepcopy(model.state_dict())
-        if epoch %2 == 0 and phase == 'val':print(outputs_c, outputs_h)
+        #if epoch %2 == 0 and phase == 'val':print(outputs_c, outputs_h)
         print()
 
     time_elapsed = time.time() - since
@@ -192,15 +192,15 @@ def main(epoch = 15, mode = 'val'):
     train_dataset = imgDataset('labels.txt', mode='train')
     test_dataset = imgDataset('labels.txt', mode='val')
     dataloaders = {
-                    "train": DataLoader(train_dataset, batch_size=32, shuffle=True),
-                    "val": DataLoader(test_dataset, batch_size=32, shuffle=True)
+                    "train": DataLoader(train_dataset, batch_size=64, shuffle=True),
+                    "val": DataLoader(test_dataset, batch_size=64, shuffle=False)
     }
     dataset_sizes = {
         "train": len(train_dataset),
         "val": len(test_dataset)
     }
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    #device = torch.device("cpu")   
+    #device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cpu")   
     model = model.to(device)
     model_conv = train_model(model, device, dataloaders, dataset_sizes, num_epochs=epoch)
     torch.save(model_conv.state_dict(), f'models/model_{epoch}.pt')
