@@ -16,7 +16,25 @@ import time
 import os
 import copy
 
+from transformers import AutoImageProcessor, ResNetModel
+
 PATH = './images/'
+
+class CUPredictor_v2(nn.Module):
+    def __init__(self, num_class=2):
+        super(CUPredictor_v2, self).__init__()
+        self.base = ResNetModel.from_pretrained("microsoft/resnet-50")
+        num_ftrs = 2048
+        #self.base.fc = nn.Linear(num_ftrs, num_ftrs//2) 
+        self.classifier = nn.Linear(num_ftrs, num_class)
+        self.height_regressor = nn.Linear(num_ftrs, 1)
+        self.relu = nn.ReLU()
+
+    def forward(self, input_img):
+        output = self.base(input_img['pixel_values'].squeeze(1)).pooler_output.squeeze() 
+        predict_cls = self.classifier(output)
+        predict_height = self.relu(self.height_regressor(output))
+        return predict_cls, predict_height
 
 class CUPredictor(nn.Module):
     def __init__(self, num_class=2):
@@ -26,16 +44,23 @@ class CUPredictor(nn.Module):
             param.requires_grad = False
 
         num_ftrs = self.base.fc.in_features
-        self.base.fc = nn.Linear(num_ftrs, num_ftrs//2) 
-        self.classifier = nn.Linear(num_ftrs//2, num_class)
-        self.height_regressor = nn.Linear(num_ftrs//2, 1)
+        self.base.fc = nn.Sequential(
+          nn.Linear(num_ftrs, num_ftrs//4),
+          nn.ReLU(),
+          nn.Linear(num_ftrs//4, num_ftrs//8),
+          nn.ReLU()
+        ) 
+        self.classifier = nn.Linear(num_ftrs//8, num_class)
+        self.regressor_h = nn.Linear(num_ftrs//8, 1)
+        self.regressor_b = nn.Linear(num_ftrs//8, 1)
         self.relu = nn.ReLU()
 
     def forward(self, input_img):
         output = self.base(input_img)    
         predict_cls = self.classifier(output)
-        predict_height = self.relu(self.height_regressor(output))
-        return predict_cls, predict_height
+        predict_height = self.relu(self.regressor_h(output))
+        predict_bust = self.relu(self.regressor_b(output))
+        return predict_cls, predict_height, predict_bust
 
 
 def imshow(inp, title=None):
@@ -75,22 +100,24 @@ def train_model(model, device, dataloaders, dataset_sizes, num_epochs=25):
             running_corrects = 0
 
             # Iterate over data.
-            for inputs, labels, heights in dataloaders[phase]:
+            for inputs, labels, heights, bust in dataloaders[phase]:
                 inputs = inputs.to(device)
                 labels = labels.to(device)
                 heights = heights.to(device)
-
+                bust = bust.to(device)
                 # zero the parameter gradients
                 optimizer.zero_grad()
 
                 # forward
                 # track history if only in train
                 with torch.set_grad_enabled(phase == 'train'):
-                    outputs_c, outputs_h = model(inputs)
+                    outputs_c, outputs_h, outputs_b = model(inputs)
                     _, preds = torch.max(outputs_c, 1)
                     ce_loss = ce(outputs_c, labels)
-                    rmse_loss = torch.sqrt(mse(outputs_h, heights.unsqueeze(-1)))
-                    loss = ce_loss + rmse_loss
+                    rmse_loss_h = torch.sqrt(mse(outputs_h, heights.unsqueeze(-1)))
+                    rmse_loss_b = torch.sqrt(mse(outputs_b, bust.unsqueeze(-1)))
+                    rmse_loss = rmse_loss_h + rmse_loss_b
+                    loss = ce_loss + (rmse_loss)*2
 
                     # backward + optimize only if in training phase
                     if phase == 'train':
@@ -104,10 +131,10 @@ def train_model(model, device, dataloaders, dataset_sizes, num_epochs=25):
                 running_corrects += torch.sum(preds == labels.data)            
 
             epoch_ce_loss = running_ce_loss / dataset_sizes[phase]
-            epoch_mse_loss = running_rmse_loss / dataset_sizes[phase]
+            epoch_rmse_loss = running_rmse_loss / dataset_sizes[phase]
             epoch_acc = running_corrects.double() / dataset_sizes[phase]
 
-            print(f'{phase} CE_Loss: {epoch_ce_loss:.4f} MSE_Loss: {epoch_mse_loss:.4f} Acc: {epoch_acc:.4f}')
+            print(f'{phase} CE_Loss: {epoch_ce_loss:.4f} RMSE_Loss: {epoch_rmse_loss:.4f} Acc: {epoch_acc:.4f}')
 
             # deep copy the model
             if phase == 'val' and epoch_acc > best_acc:
@@ -180,17 +207,17 @@ def inference(img_path, classes = ['big', 'small'], epoch = 25):
     image_tensor = image_tensor.unsqueeze(0)
     with torch.no_grad():
         inputs = image_tensor.to(device)
-        outputs_c, outputs_h = model(inputs)
+        outputs_c, outputs_h, outputs_b = model(inputs)
         _, preds = torch.max(outputs_c, 1)
         idx = preds.numpy()[0]
-    return outputs_c, classes[idx], f"{outputs_h.numpy()[0][0]:.2f}"
+    return outputs_c, classes[idx], f"{outputs_h.numpy()[0][0]:.2f}", f"{outputs_b.numpy()[0][0]:.2f}"
 
 def main(epoch = 15, mode = 'val'):
     cudnn.benchmark = True
     plt.ion()   # interactive mode
     model = CUPredictor()
-    train_dataset = imgDataset('labels.txt', mode='train')
-    test_dataset = imgDataset('labels.txt', mode='val')
+    train_dataset = imgDataset('labels.txt', mode='train', use_processor=False)
+    test_dataset = imgDataset('labels.txt', mode='val', use_processor=False)
     dataloaders = {
                     "train": DataLoader(train_dataset, batch_size=64, shuffle=True),
                     "val": DataLoader(test_dataset, batch_size=64, shuffle=False)
@@ -199,8 +226,8 @@ def main(epoch = 15, mode = 'val'):
         "train": len(train_dataset),
         "val": len(test_dataset)
     }
-    #device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    device = torch.device("cpu")   
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    #device = torch.device("cpu")   
     model = model.to(device)
     model_conv = train_model(model, device, dataloaders, dataset_sizes, num_epochs=epoch)
     torch.save(model_conv.state_dict(), f'models/model_{epoch}.pt')
@@ -228,10 +255,10 @@ if __name__ == "__main__":
     CLASS = ['big', 'small']
     mode = 'train'
     get_label(['train', 'val'])
-    main(25, mode = mode)
+    #main(6, mode = mode)
     
-    outputs, preds, heights = inference('images/test/lin.png', CLASS, epoch=25)
-    print(outputs, preds, heights)
+    outputs, preds, heights, bust = inference('images/test/lin.png', CLASS, epoch=6)
+    print(outputs, preds, heights, bust)
     #print(CUPredictor())
     #divide_class_dir('./images/train')
     #divide_class_dir('./images/val')

@@ -52,5 +52,5 @@ def delete_images():
                     os.remove(path)
 
 if __name__ == "__main__":
-    #get_image()
-    delete_images()
+    get_image()
+    #delete_images()
