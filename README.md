@@ -20,7 +20,7 @@ Choose the photo you want to predict, and the model will give the result.
 See detail at `predictor.py`
 ```Python=
 Model: ResNet50 (Pretrain=True)
-Optimizer: AdamW (Learning Rate: 1e-4)
+Optimizer: AdamW (Learning Rate: 1e-4) 6 Epoch
 Task: Binary Classification and Regression
 Data: 2,058 photo stickers (see ./image dir)
 ```
