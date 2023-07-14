@@ -255,9 +255,10 @@ if __name__ == "__main__":
     CLASS = ['big', 'small']
     mode = 'train'
     get_label(['train', 'val'])
-    #main(6, mode = mode)
+    epoch = 10
+    main(epoch, mode = mode)
     
-    outputs, preds, heights, bust = inference('images/test/lin.png', CLASS, epoch=6)
+    outputs, preds, heights, bust = inference('images/test/lin.png', CLASS, epoch=epoch)
     print(outputs, preds, heights, bust)
     #print(CUPredictor())
     #divide_class_dir('./images/train')
