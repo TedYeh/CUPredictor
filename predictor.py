@@ -189,7 +189,7 @@ def evaluation(model, epoch, device, dataloaders):
             _, preds = torch.max(outputs, 1)
             print(preds)
 
-def inference(img_path, classes = ['big', 'small'], epoch = 25):
+def inference(img_path, classes = ['big', 'small'], epoch = 6):
     model = model = CUPredictor()
     model.load_state_dict(torch.load(f'models/model_{epoch}.pt'))
     model.eval()
