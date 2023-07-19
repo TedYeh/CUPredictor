@@ -17,6 +17,7 @@ import os
 import copy
 from transformers import BlipProcessor, BlipForConditionalGeneration
 from transformers import AutoImageProcessor, ResNetModel
+from translate import Translator
 
 PATH = './images/'
 
@@ -191,6 +192,7 @@ def evaluation(model, epoch, device, dataloaders):
 
 def inference(img_path, classes = ['big', 'small'], epoch = 6):
     device = torch.device("cpu")
+    translator= Translator(to_lang="zh-TW")
 
     model = model = CUPredictor()
     model.load_state_dict(torch.load(f'models/model_{epoch}.pt'))
@@ -219,7 +221,8 @@ def inference(img_path, classes = ['big', 'small'], epoch = 6):
         inputs = processor(inp_img, return_tensors="pt")
         out = model_blip.generate(**inputs)
         description = processor.decode(out[0], skip_special_tokens=True)
-    return outputs_c, classes[idx], f"{outputs_h.numpy()[0][0]:.2f}", f"{outputs_b.numpy()[0][0]:.2f}", description
+        description_tw = translator.translate(description)
+    return outputs_c, classes[idx], f"{outputs_h.numpy()[0][0]:.2f}", f"{outputs_b.numpy()[0][0]:.2f}", [description, description_tw]
 
 def main(epoch = 15, mode = 'val'):
     cudnn.benchmark = True
