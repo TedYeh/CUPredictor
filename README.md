@@ -5,8 +5,10 @@
 </div>
 
 ## Base Model
-image-to-text: Salesforce/blip-image-captioning-base<br>
+```Python=
+image-to-text: Salesforce/blip-image-captioning-base
 image regression: ResNet in Pytorch
+```
 
 ## Usage
 Clone this repo. 
