@@ -1,5 +1,6 @@
 # CUPredictor - Know the size of the BRA
 <div align="center">
+ <p>Upload image and you will get a description</p>
  <img src="static/imgs/UI.jpg" width="45%" height="45%">
 </div>
 

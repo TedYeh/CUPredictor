@@ -15,7 +15,7 @@ from dataloader import imgDataset
 import time
 import os
 import copy
-
+from transformers import BlipProcessor, BlipForConditionalGeneration
 from transformers import AutoImageProcessor, ResNetModel
 
 PATH = './images/'
@@ -190,11 +190,15 @@ def evaluation(model, epoch, device, dataloaders):
             print(preds)
 
 def inference(img_path, classes = ['big', 'small'], epoch = 6):
+    device = torch.device("cpu")
+
     model = model = CUPredictor()
     model.load_state_dict(torch.load(f'models/model_{epoch}.pt'))
+    # load image-to-text model
+    processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+    model_blip = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
     model.eval()
 
-    device = torch.device("cpu")
     trans = transforms.Compose([
             transforms.Resize(256),
             transforms.CenterCrop(224),
@@ -210,7 +214,12 @@ def inference(img_path, classes = ['big', 'small'], epoch = 6):
         outputs_c, outputs_h, outputs_b = model(inputs)
         _, preds = torch.max(outputs_c, 1)
         idx = preds.numpy()[0]
-    return outputs_c, classes[idx], f"{outputs_h.numpy()[0][0]:.2f}", f"{outputs_b.numpy()[0][0]:.2f}"
+
+        # unconditional image captioning
+        inputs = processor(inp_img, return_tensors="pt")
+        out = model_blip.generate(**inputs)
+        description = processor.decode(out[0], skip_special_tokens=True)
+    return outputs_c, classes[idx], f"{outputs_h.numpy()[0][0]:.2f}", f"{outputs_b.numpy()[0][0]:.2f}", description
 
 def main(epoch = 15, mode = 'val'):
     cudnn.benchmark = True
@@ -258,7 +267,7 @@ if __name__ == "__main__":
     epoch = 10
     main(epoch, mode = mode)
     
-    outputs, preds, heights, bust = inference('images/test/lin.png', CLASS, epoch=epoch)
+    outputs, preds, heights, bust, description = inference('images/test/lin.png', CLASS, epoch=epoch)
     print(outputs, preds, heights, bust)
     #print(CUPredictor())
     #divide_class_dir('./images/train')

@@ -23,7 +23,7 @@
         <![endif]-->
     </head>
     <body>
-        <div class="container">
+        <div class="container" align="center">
             <div class="demo-headline">
                 <img src="static/imgs/bra.png" alt="image" class="img-rounded img-responsive" width="15%" height="15%">
                 <h1 class="demo-logo">
@@ -31,18 +31,24 @@
                     <small>Know the size of the CUP</small>
                 </h1>
             </div>            
-            <div align="center">                  
+            <div class="card-group" align="center" style="width: 55%">  
                 <div class="card" style="width: 18rem;">
-                    <img src="{{ user_image }}" class="card-img-top" alt="input image">
                     <div class="card-body">
-                      <h5 class="card-title">I Guess</h5>
-                      <p class="card-text">你有{{bust_str}}那麼大({{bust}})<br>有{{height}}公分這麼高</p>
-                      <form method=post enctype=multipart/form-data>
-                        <input type="file" name="file" placeholder="select your file" class="form-control flat" />
-                        <input type="submit" value="Upload" class="btn btn-block btn-lg btn-primary" />
-                      </form>
+                        <img src="{{ user_image }}" class="card-img-top" alt="input image">                        
+                        <h5 class="card-title">I Guess</h5>
+                        <p class="card-text">你有{{bust_str}}那麼大({{bust}})<br>有{{height}}公分這麼高</p>
+                        <form method=post enctype=multipart/form-data>
+                            <input type="file" name="file" placeholder="select your file" class="form-control flat" />
+                            <input type="submit" value="Upload" class="btn btn-block btn-lg btn-primary" />
+                        </form>     
+                    </div>                   
+                </div> 
+                <div class="card" style="width: 18rem;">
+                    <div class="card-body">
+                        <h5 class="card-title">You Like</h5>
+                        <p class="card-text">{{description}}</p>
                     </div>
-                </div>                
+                </div>                                              
             </div>            
         </div>
     </body>
