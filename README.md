@@ -4,6 +4,10 @@
  <img src="static/imgs/UI.jpg" width="45%" height="45%">
 </div>
 
+## Base Model
+image-to-text: Salesforce/blip-image-captioning-base
+image regression: ResNet in Pytorch
+
 ## Usage
 Clone this repo. 
 ```
@@ -21,7 +25,7 @@ Choose the photo you want to predict, and the model will give the result.
 See detail at `predictor.py`
 ```Python=
 Model: ResNet50 (Pretrain=True)
-Optimizer: AdamW (Learning Rate: 1e-4) 6 Epoch
+Optimizer: AdamW (Learning Rate: 8e-4) 6 Epoch
 Task: Binary Classification and Regression
 Data: 2,058 photo stickers (see ./image dir)
 ```
