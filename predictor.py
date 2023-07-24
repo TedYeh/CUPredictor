@@ -54,14 +54,18 @@ class CUPredictor(nn.Module):
         self.classifier = nn.Linear(num_ftrs//8, num_class)
         self.regressor_h = nn.Linear(num_ftrs//8, 1)
         self.regressor_b = nn.Linear(num_ftrs//8, 1)
+        self.regressor_w = nn.Linear(num_ftrs//8, 1)
+        self.regressor_hi = nn.Linear(num_ftrs//8, 1)
         self.relu = nn.ReLU()
 
     def forward(self, input_img):
         output = self.base(input_img)    
         predict_cls = self.classifier(output)
-        predict_height = self.relu(self.regressor_h(output))
-        predict_bust = self.relu(self.regressor_b(output))
-        return predict_cls, predict_height, predict_bust
+        predict_h = self.relu(self.regressor_h(output))
+        predict_b = self.relu(self.regressor_b(output))
+        predict_w = self.relu(self.regressor_w(output))
+        predict_hi = self.relu(self.regressor_hi(output))
+        return predict_cls, predict_h, predict_b, predict_w, predict_hi
 
 
 def imshow(inp, title=None):
@@ -86,7 +90,7 @@ def train_model(model, device, dataloaders, dataset_sizes, num_epochs=25):
     best_acc = 0.0
 
     for epoch in range(num_epochs):
-        print(f'Epoch {epoch}/{num_epochs - 1}')
+        print(f'Epoch {epoch+1}/{num_epochs}')
         print('-' * 10)
 
         # Each epoch has a training and validation phase
@@ -101,24 +105,27 @@ def train_model(model, device, dataloaders, dataset_sizes, num_epochs=25):
             running_corrects = 0
 
             # Iterate over data.
-            for inputs, labels, heights, bust in dataloaders[phase]:
+            for inputs, labels, heights, bust, waist, hips in dataloaders[phase]:
                 inputs = inputs.to(device)
                 labels = labels.to(device)
                 heights = heights.to(device)
                 bust = bust.to(device)
+                waist, hips = waist.to(device), hips.to(device)
                 # zero the parameter gradients
                 optimizer.zero_grad()
 
                 # forward
                 # track history if only in train
                 with torch.set_grad_enabled(phase == 'train'):
-                    outputs_c, outputs_h, outputs_b = model(inputs)
+                    outputs_c, outputs_h, outputs_b, outputs_w, outputs_hi = model(inputs)
                     _, preds = torch.max(outputs_c, 1)
                     ce_loss = ce(outputs_c, labels)
                     rmse_loss_h = torch.sqrt(mse(outputs_h, heights.unsqueeze(-1)))
                     rmse_loss_b = torch.sqrt(mse(outputs_b, bust.unsqueeze(-1)))
-                    rmse_loss = rmse_loss_h + rmse_loss_b
-                    loss = ce_loss + (rmse_loss)*2
+                    rmse_loss_w = torch.sqrt(mse(outputs_w, waist.unsqueeze(-1)))
+                    rmse_loss_hi = torch.sqrt(mse(outputs_hi, hips.unsqueeze(-1)))
+                    rmse_loss = rmse_loss_h*4 + rmse_loss_b*2 + rmse_loss_w + rmse_loss_hi
+                    loss = ce_loss + (rmse_loss)*1
 
                     # backward + optimize only if in training phase
                     if phase == 'train':
@@ -213,7 +220,7 @@ def inference(img_path, classes = ['big', 'small'], epoch = 6):
     image_tensor = image_tensor.unsqueeze(0)
     with torch.no_grad():
         inputs = image_tensor.to(device)
-        outputs_c, outputs_h, outputs_b = model(inputs)
+        outputs_c, outputs_h, outputs_b, outputs_w, outputs_hi = model(inputs)
         _, preds = torch.max(outputs_c, 1)
         idx = preds.numpy()[0]
 
@@ -222,7 +229,7 @@ def inference(img_path, classes = ['big', 'small'], epoch = 6):
         out = model_blip.generate(**inputs)
         description = processor.decode(out[0], skip_special_tokens=True)
         description_tw = translator.translate(description)
-    return outputs_c, classes[idx], f"{outputs_h.numpy()[0][0]:.2f}", f"{outputs_b.numpy()[0][0]:.2f}", [description, description_tw]
+    return outputs_c, classes[idx], f"{outputs_h.numpy()[0][0]:.2f}", f"{outputs_b.numpy()[0][0]:.2f}", f"{outputs_w.numpy()[0][0]:.2f}", f"{outputs_hi.numpy()[0][0]:.2f}", [description, description_tw]
 
 def main(epoch = 15, mode = 'val'):
     cudnn.benchmark = True
@@ -267,12 +274,12 @@ if __name__ == "__main__":
     CLASS = ['big', 'small']
     mode = 'train'
     get_label(['train', 'val'])
-    epoch = 10
-    main(epoch, mode = mode)
+    epoch = 7
+    #main(epoch, mode = mode)
     
-    outputs, preds, heights, bust, description = inference('images/test/lin.png', CLASS, epoch=epoch)
-    print(outputs, preds, heights, bust)
+    outputs, preds, heights, bust, waist, hips, description = inference('images/test/lin.png', CLASS, epoch=epoch)
+    print(outputs, preds, heights, bust, waist, hips)
     #print(CUPredictor())
-    #divide_class_dir('./images/train')
-    #divide_class_dir('./images/val')
+    #divide_class_dir('./images/train_all')
+    #divide_class_dir('./images/val_all')
     ''''''

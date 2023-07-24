@@ -1,7 +1,7 @@
 # CUPredictor - Know the size of the BRA
 <div align="center">
- <p>Upload image and you will get a description</p>
- <img src="static/imgs/UI.jpg" width="45%" height="45%">
+ <p>It's a body index predictor. <br> Input an headshot, you can get person's measurements.</p>
+ <img src="static/imgs/UI_2.jpg" width="45%" height="45%">
 </div>
 
 ## Base Model

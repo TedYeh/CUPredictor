@@ -35,18 +35,18 @@ def upload_file():
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            outputs, preds, heights, bust, description = inference(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            outputs, preds, heights, bust, waist, hips, description = inference(os.path.join(app.config['UPLOAD_FOLDER'], filename), epoch = 7)
             for k, v in bust_dict.items():
                 print(v,round(float(bust)))
                 if round(float(bust)) in v: 
                     bust = round(float(bust))
                     bust_str = k
                     break
-            print(outputs, bust)
+            print(outputs, bust, waist, hips)
             img = os.path.join(app.config['UPLOAD_FOLDER'], filename)#app.config['UPLOAD_FOLDER']
 
-            return render_template('classifier.html', result = '大' if preds=='big' else '小', height = heights, user_image = img, bust_str = bust_str, bust = bust, description = description)
-    return render_template('classifier.html', result = preds, height = heights, user_image = 'static/imgs/cup.png', bust_str = 'A', bust = 0, description=description)
+            return render_template('classifier.html', result = '大' if preds=='big' else '小', height = heights, user_image = img, bust_str = bust_str, bust = bust, waist = round(float(waist)), hips = round(float(hips)), description = description)
+    return render_template('classifier.html', result = preds, height = heights, user_image = 'static/imgs/cup.png', bust_str = 'A', bust = 0, waist = 0, hips = 0, description=description)
 
 
 if __name__ == "__main__":
